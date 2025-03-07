@@ -461,25 +461,6 @@ fun MealCard(meal: Meal, navController: NavHostController) {
         }
     }
 }
-
-@Composable
-fun MealItem(meal: Meal) {
-    Card(
-        modifier = Modifier
-            .padding(8.dp)
-            .fillMaxSize(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = meal.strMeal, style = MaterialTheme.typography.headlineMedium)
-            AsyncImage(
-                model = meal.strMealThumb,
-                contentDescription = meal.strMeal,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-    }
-}
 suspend fun fetchMeals(): List<Meal> {
     return withContext(Dispatchers.IO) {
         try {
@@ -499,117 +480,117 @@ suspend fun fetchMeals(): List<Meal> {
     }
 }
 
-@Composable
-fun Screen2(navController: NavHostController) {
-    val searchQuery = remember { mutableStateOf("") }
-    val mealResult = remember { mutableStateOf<Meal?>(null) }
-    val coroutineScope = rememberCoroutineScope()
+    @Composable
+    fun Screen2(navController: NavHostController) {
+        val searchQuery = remember { mutableStateOf("") }
+        val mealResults = remember { mutableStateOf<List<Meal>>(emptyList()) }
+        val coroutineScope = rememberCoroutineScope()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFFFCE4EC), Color(0xFFFFF3E0))))
-            .padding(16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Text(
-                text = "🔍 Cerca un piatto",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF880E4F),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            OutlinedTextField(
-                value = searchQuery.value,
-                onValueChange = { searchQuery.value = it },
-                label = { Text("Nome del piatto") },
-                leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Icona Cerca") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFFF7043),
-                    unfocusedBorderColor = Color.Gray
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        val meal = fetchMealByName(searchQuery.value)
-                        mealResult.value = meal
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(imageVector = Icons.Default.Search, contentDescription = "Icona Cerca")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Cerca", color = Color.White)
+        LaunchedEffect(searchQuery.value) {
+            if (searchQuery.value.length > 1) {
+                coroutineScope.launch {
+                    mealResults.value = fetchMealsByName(searchQuery.value)
+                }
+            } else {
+                mealResults.value = emptyList()
             }
+        }
 
-            mealResult.value?.let { meal ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { navController.navigate("MealDetailScreen/${meal.idMeal}") },
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Color(0xFFFCE4EC), Color(0xFFFFF3E0))))
+                .padding(16.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Text(
+                    text = "🔍 Cerca un piatto",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF880E4F),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                OutlinedTextField(
+                    value = searchQuery.value,
+                    onValueChange = { searchQuery.value = it },
+                    label = { Text("Nome del piatto") },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Icona Cerca") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFFF7043),
+                        unfocusedBorderColor = Color.Gray
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            meal.strMeal,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF880E4F)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        AsyncImage(
-                            model = meal.strMealThumb,
-                            contentDescription = meal.strMeal,
+                    items(mealResults.value) { meal ->
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .border(2.dp, Color(0xFFFF7043), RoundedCornerShape(12.dp))
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { navController.navigate("MealDetailScreen/${meal.idMeal}") },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF880E4F))
+                                .clickable { navController.navigate("MealDetailScreen/${meal.idMeal}") },
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
-                            Text("Vedi dettagli", color = Color.White)
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    meal.strMeal,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF880E4F)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                AsyncImage(
+                                    model = meal.strMealThumb,
+                                    contentDescription = meal.strMeal,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .border(2.dp, Color(0xFFFF7043), RoundedCornerShape(12.dp))
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = { navController.navigate("MealDetailScreen/${meal.idMeal}") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF880E4F))
+                                ) {
+                                    Text("Vedi dettagli", color = Color.White)
+                                }
+                            }
                         }
                     }
                 }
-            } ?: Text("Nessun piatto trovato", color = Color.Red)
+            }
         }
     }
-}
 
-
-suspend fun fetchMealByName(name: String): Meal? {
-    return withContext(Dispatchers.IO) {
-        try {
-            val response = URL("https://www.themealdb.com/api/json/v1/1/search.php?s=$name").readText()
-            val mealResponse = kotlinx.serialization.json.Json {
-                ignoreUnknownKeys = true
-            }.decodeFromString<MealResponse>(response)
-            mealResponse.meals?.firstOrNull()
-        } catch (e: Exception) {
-            Log.e("API_ERROR", "Errore durante la ricerca del piatto: ${e.message}")
-            null
+    suspend fun fetchMealsByName(name: String): List<Meal> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = URL("https://www.themealdb.com/api/json/v1/1/search.php?s=$name").readText()
+                val mealResponse = kotlinx.serialization.json.Json {
+                    ignoreUnknownKeys = true
+                }.decodeFromString<MealResponse>(response)
+                mealResponse.meals ?: emptyList()
+            } catch (e: Exception) {
+                Log.e("API_ERROR", "Errore durante la ricerca del piatto: ${e.message}")
+                emptyList()
+            }
         }
     }
-}
+
 @Composable
 fun MealDetailScreen(navController: NavHostController, mealId: String?) {
     val meal = remember { mutableStateOf<Meal?>(null) }
@@ -624,7 +605,7 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF6A1B9A), Color(0xFFFF7043))))
+            .background(Brush.verticalGradient(listOf(Color(0xFF4A148C), Color(0xFFFF7043))))
             .padding(16.dp)
     ) {
         meal.value?.let { mealData ->
@@ -636,9 +617,10 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
             ) {
                 Text(
                     text = mealData.strMeal,
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    ),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
@@ -646,12 +628,12 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .shadow(10.dp, RoundedCornerShape(16.dp)),
+                        .clip(RoundedCornerShape(24.dp))
+                        .shadow(12.dp, RoundedCornerShape(24.dp)),
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         AsyncImage(
@@ -659,17 +641,18 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
                             contentDescription = mealData.strMeal,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .border(4.dp, Color(0xFFFF7043), RoundedCornerShape(16.dp))
+                                .clip(RoundedCornerShape(20.dp))
+                                .border(5.dp, Color(0xFFFF7043), RoundedCornerShape(20.dp))
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
                             text = "🍽️ Ingredienti",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF6A1B9A)
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4A148C)
+                            )
                         )
 
                         Column(
@@ -678,11 +661,15 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
                             mealData.getIngredientsList().forEach { ingredient ->
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(4.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(6.dp)
+                                        .background(Color(0xFFF3E5F5), shape = RoundedCornerShape(12.dp))
+                                        .padding(8.dp)
                                 ) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFFFF7043))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(ingredient, fontSize = 16.sp)
+                                    Text(ingredient, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                                 }
                             }
                         }
@@ -691,15 +678,19 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
 
                         Text(
                             text = "📜 Preparazione",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF6A1B9A)
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4A148C)
+                            )
                         )
 
                         Text(
                             text = mealData.strInstructions ?: "Nessuna istruzione disponibile",
                             fontSize = 16.sp,
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            modifier = Modifier
+                                .padding(vertical = 8.dp)
+                                .background(Color(0xFFFFF3E0), shape = RoundedCornerShape(12.dp))
+                                .padding(12.dp)
                         )
 
                         mealData.strYoutube?.let { youtubeLink ->
@@ -709,7 +700,8 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(youtubeLink))
                                     context.startActivity(intent)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043)),
+                                modifier = Modifier.clip(RoundedCornerShape(12.dp))
                             ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -724,16 +716,17 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
                 Button(
                     onClick = { navController.navigate("screen2") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A1B9A))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A148C)),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("🔙 Torna Indietro", color = Color.White)
+                    Text("🔙 Torna Indietro", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         } ?: Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = Color.White)
+            CircularProgressIndicator(color = Color.White, strokeWidth = 5.dp)
         }
     }
 }
@@ -896,36 +889,6 @@ suspend fun fetchMealsByCountry(country: String): List<MealPreview> {
         }
     }
 }
-
-@Composable
-fun MealItem(meal: MealPreview, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = meal.strMealThumb,
-                contentDescription = meal.strMeal,
-                modifier = Modifier
-                    .size(100.dp)
-                    .padding(8.dp)
-            )
-
-            Text(
-                text = meal.strMeal,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-    }
-}
-
-
-
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
