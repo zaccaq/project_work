@@ -12,7 +12,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseInOutQuart
 import androidx.compose.animation.core.EaseOutBack
+import androidx.compose.animation.core.EaseOutBounce
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.EaseOutElastic
+import androidx.compose.animation.core.EaseOutQuint
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -24,6 +29,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +42,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -60,9 +67,11 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Casino
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,10 +86,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -95,6 +109,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.net.URL
+import kotlin.math.sin
+import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
 
@@ -170,11 +186,11 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
 
-                                // Aggiungi un nuovo NavigationBarItem per la schermata RandomMealScreen
+
                                 NavigationBarItem(
                                     icon = {
                                         Icon(
-                                            imageVector = Icons.Outlined.Casino, // Oppure Icons.Outlined.Shuffle
+                                            imageVector = Icons.Outlined.Casino,
                                             contentDescription = "Ricetta Casuale"
                                         )
                                     },
@@ -265,175 +281,432 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-@Composable
-fun StartScreen(navController: NavController) {
-    val gradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFFF7043),
-            Color(0xFFE64A19),
-            Color(0xFFBF360C)
-        ),
-        startY = 0f,
-        endY = Float.POSITIVE_INFINITY
-    )
+    @Composable
+    fun StartScreen(navController: NavController) {
+        // Gradiente più ricco con più colori per un effetto più profondo
+        val gradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFF9800),
+                Color(0xFFFF7043),
+                Color(0xFFE64A19),
+                Color(0xFFD84315),
+                Color(0xFFBF360C)
+            ),
+            startY = 0f,
+            endY = Float.POSITIVE_INFINITY
+        )
 
-    val buttonScale = remember { Animatable(1f) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            buttonScale.animateTo(1.05f, animationSpec = tween(700, easing = FastOutSlowInEasing))
-            buttonScale.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
-            delay(1000)
-        }
-    }
 
-    val rotationAngle = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            rotationAngle.animateTo(10f, animationSpec = tween(1000, easing = FastOutSlowInEasing))
-            rotationAngle.animateTo(-10f, animationSpec = tween(1000, easing = FastOutSlowInEasing))
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gradient)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            var titleVisible by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                delay(300)
-                titleVisible = true
-            }
-
-            AnimatedVisibility(
-                visible = titleVisible,
-                enter = fadeIn(animationSpec = tween(1000)) + expandVertically(animationSpec = tween(1000, easing = EaseOutBack))
-            ) {
-                Text(
-                    text = "GustoMagico 🍽️",
-                    style = MaterialTheme.typography.displayMedium.copy(
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.6f),
-                            offset = Offset(4f, 4f),
-                            blurRadius = 10f
-                        )
-                    ),
-                    modifier = Modifier.padding(bottom = 8.dp)
+        val particleCount = 30
+        val particles = remember {
+            List(particleCount) {
+                androidx.compose.runtime.mutableStateOf(
+                    Particle(
+                        x = Random.nextFloat() * 1000f,
+                        y = Random.nextFloat() * 2000f,
+                        size = Random.nextFloat() * 20f + 5f,
+                        speed = Random.nextFloat() * 2f + 1f,
+                        alpha = Random.nextFloat() * 0.5f + 0.1f
+                    )
                 )
             }
+        }
 
-            var visibleCharacters by remember { mutableStateOf(0) }
-            val fullText = "Scopri le migliori ricette da tutto il mondo!"
-
-            LaunchedEffect(titleVisible) {
-                if (titleVisible) {
-                    delay(500)
-                    for (i in 1..fullText.length) {
-                        visibleCharacters = i
-                        delay(30)
-                    }
-                }
+        // Animazione del pulsante più elaborata con pulsazione
+        val buttonScale = remember { Animatable(1f) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                buttonScale.animateTo(1.08f, animationSpec = tween(600, easing = EaseInOutQuart))
+                buttonScale.animateTo(0.98f, animationSpec = tween(500, easing = EaseInOutQuart))
+                buttonScale.animateTo(1.03f, animationSpec = tween(400, easing = EaseInOutQuart))
+                buttonScale.animateTo(1f, animationSpec = tween(300, easing = EaseInOutQuart))
+                delay(1500)
             }
+        }
 
-            Text(
-                text = fullText.take(visibleCharacters),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 18.sp
-                ),
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
 
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Food Icon",
-                tint = Color.White,
-                modifier = Modifier
-                    .size(120.dp)
-                    .graphicsLayer {
-                        rotationZ = rotationAngle.value
-                    }
-                    .padding(bottom = 32.dp)
-            )
+        val rotationAngle = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                // Movimento più organico con effetto di rimbalzo
+                rotationAngle.animateTo(12f, animationSpec = tween(800, easing = EaseOutBounce))
+                rotationAngle.animateTo(-12f, animationSpec = tween(800, easing = EaseOutBounce))
+            }
+        }
 
-            ElevatedButton(
-                onClick = {
-                    navController.navigate("screen1") {
-                        popUpTo("startScreen") { inclusive = true }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .graphicsLayer {
-                        scaleX = buttonScale.value
-                        scaleY = buttonScale.value
-                    }
-                    .shadow(10.dp, RoundedCornerShape(16.dp)),
-                colors = ButtonDefaults.elevatedButtonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFFE64A19)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Inizia",
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "INIZIA L'ESPERIENZA",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        )
+
+        val scrollState = rememberScrollState()
+        val parallaxOffset = scrollState.value * 0.15f
+
+
+        LaunchedEffect(Unit) {
+            while (true) {
+                particles.forEach { particle ->
+                    particle.value = particle.value.copy(
+                        y = (particle.value.y - particle.value.speed) % 2000f,
+                        x = particle.value.x + sin(particle.value.y * 0.01f) * 2f
                     )
                 }
+                delay(16) // Circa 60fps
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "Fatti ispirare dalla magia del gusto",
-                style = TextStyle(
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp,
-                    fontStyle = FontStyle.Italic
-                )
-            )
         }
 
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 16.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .background(gradient)
         ) {
-            Text(
-                text = "v1.0  •  © 2025 GustoMagico",
-                style = TextStyle(
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 12.sp
-                )
+
+            particles.forEach { particle ->
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = particle.value.alpha),
+                        radius = particle.value.size,
+                        center = Offset(particle.value.x, particle.value.y)
+                    )
+                }
+            }
+
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFFFF5722).copy(alpha = 0.0f),
+                                Color(0xFFFF5722).copy(alpha = 0.2f)
+                            ),
+                            radius = 1200f
+                        )
+                    )
             )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                var titleVisible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    delay(300)
+                    titleVisible = true
+                }
+
+
+                AnimatedVisibility(
+                    visible = titleVisible,
+                    enter = fadeIn(animationSpec = tween(1200)) +
+                            expandVertically(animationSpec = tween(1200, easing = EaseOutElastic)) +
+                            scaleIn(initialScale = 0.7f, animationSpec = tween(1500, easing = EaseOutBack))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Gusto",
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 2.sp,
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    offset = Offset(5f, 5f),
+                                    blurRadius = 15f
+                                )
+                            )
+                        )
+                        Text(
+                            text = "Magico",
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                color = Color(0xFFFFC107),
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 2.sp,
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    offset = Offset(5f, 5f),
+                                    blurRadius = 15f
+                                )
+                            )
+                        )
+                        Text(
+                            text = " 🍽️",
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    offset = Offset(3f, 3f),
+                                    blurRadius = 10f
+                                )
+                            ),
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = 1.2f
+                                scaleY = 1.2f
+                            }
+                        )
+                    }
+                }
+
+
+                var visibleCharacters by remember { mutableStateOf(0) }
+                val fullText = "Scopri le migliori ricette da tutto il mondo!"
+                val showCursor by remember { derivedStateOf { visibleCharacters < fullText.length } }
+
+                LaunchedEffect(titleVisible) {
+                    if (titleVisible) {
+                        delay(700)
+                        for (i in 1..fullText.length) {
+                            visibleCharacters = i
+                            delay(35)
+                        }
+                    }
+                }
+
+                Box(modifier = Modifier.padding(bottom = 40.dp, top = 16.dp)) {
+                    Text(
+                        text = fullText.take(visibleCharacters),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.5.sp,
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.5f),
+                                offset = Offset(2f, 2f),
+                                blurRadius = 4f
+                            )
+                        )
+                    )
+
+
+                    if (showCursor) {
+                        val cursorVisible = remember { mutableStateOf(true) }
+                        LaunchedEffect(Unit) {
+                            while (true) {
+                                cursorVisible.value = !cursorVisible.value
+                                delay(530)
+                            }
+                        }
+
+                        if (cursorVisible.value) {
+                            Box(
+                                modifier = Modifier
+                                    .height(24.dp)
+                                    .width(2.dp)
+                                    .background(Color.White)
+                                    .offset(x = with(LocalDensity.current) {
+                                        (fullText.take(visibleCharacters).width(
+                                            MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp)
+                                        ) + 2.dp).toPx().dp
+                                    })
+                            )
+                        }
+                    }
+                }
+
+
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 16.dp)
+                        .size(160.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFFFFA726).copy(alpha = 0.7f),
+                                    Color(0xFFE65100).copy(alpha = 0.0f)
+                                )
+                            ),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.RestaurantMenu, // Icona più pertinente al cibo
+                        contentDescription = "Food Icon",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .graphicsLayer {
+                                rotationZ = rotationAngle.value
+                                shadowElevation = 15f
+                            }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .graphicsLayer {
+                            scaleX = buttonScale.value
+                            scaleY = buttonScale.value
+                        }
+                ) {
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .offset(y = 4.dp)
+                            .shadow(20.dp, RoundedCornerShape(24.dp))
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFFFF9800).copy(alpha = 0.7f),
+                                        Color(0xFFFF5722).copy(alpha = 0.4f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                    )
+
+
+                    Button(
+                        onClick = {
+                            navController.navigate("screen1") {
+                                popUpTo("startScreen") { inclusive = true }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .shadow(8.dp, RoundedCornerShape(24.dp)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color(0xFFE64A19)
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 6.dp,
+                            pressedElevation = 2.dp
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.RestaurantMenu,
+                                contentDescription = "Inizia",
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "INIZIA L'ESPERIENZA",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp,
+                                    fontSize = 18.sp
+                                )
+                            )
+                        }
+                    }
+                }
+
+
+                var subtitleVisible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    delay(1800)
+                    subtitleVisible = true
+                }
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                AnimatedVisibility(
+                    visible = subtitleVisible,
+                    enter = fadeIn(animationSpec = tween(1500)) +
+                            slideInVertically(animationSpec = tween(1000, easing = EaseOutQuint))
+                ) {
+                    Text(
+                        text = "Fatti ispirare dalla magia del gusto",
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 16.sp,
+                            fontStyle = FontStyle.Italic,
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.5f),
+                                offset = Offset(1f, 1f),
+                                blurRadius = 2f
+                            ),
+                            letterSpacing = 0.5.sp
+                        )
+                    )
+                }
+            }
+
+
+            var footerVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                delay(2000)
+                footerVisible = true
+            }
+
+            AnimatedVisibility(
+                visible = footerVisible,
+                enter = fadeIn(animationSpec = tween(1000)) +
+                        slideInVertically(
+                            initialOffsetY = { it / 2 },
+                            animationSpec = tween(800, easing = EaseOutCubic)
+                        ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Divider(
+                        color = Color.White.copy(alpha = 0.3f),
+                        thickness = 1.dp,
+                        modifier = Modifier
+                            .width(100.dp)
+                            .padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "v1.0  •  © 2025 GustoMagico",
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 12.sp,
+                            letterSpacing = 0.5.sp
+                        )
+                    )
+                }
+            }
         }
     }
-}
 
+
+    private data class Particle(
+        val x: Float,
+        val y: Float,
+        val size: Float,
+        val speed: Float,
+        val alpha: Float
+    )
+
+
+    @Composable
+    private fun String.width(style: TextStyle): Dp {
+        val density = LocalDensity.current
+        val textMeasurer = rememberTextMeasurer()
+        return with(density) {
+            textMeasurer
+                .measure(
+                    text = AnnotatedString(this@width),
+                    style = style
+                )
+                .size
+                .width
+                .toDp()
+        }
+    }
 @Composable
 fun Screen1(navController: NavHostController) {
     val meals = remember { mutableStateOf<List<Meal>>(emptyList()) }
@@ -770,7 +1043,7 @@ fun MealDetailScreen(navController: NavHostController, mealId: String?) {
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
-                    onClick = { navController.navigate("screen2") },
+                    onClick = { navController.popBackStack() },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A148C)),
                     shape = RoundedCornerShape(12.dp)
