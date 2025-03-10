@@ -89,6 +89,7 @@ import com.airbnb.lottie.LottieCompositionFactory
 import com.example.project_work.model.MealPreview
 import com.example.project_work.model.MealPreviewResponse
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -485,14 +486,17 @@ suspend fun fetchMeals(): List<Meal> {
         val searchQuery = remember { mutableStateOf("") }
         val mealResults = remember { mutableStateOf<List<Meal>>(emptyList()) }
         val coroutineScope = rememberCoroutineScope()
+        val debounceJob = remember { mutableStateOf<Job?>(null) }
 
         LaunchedEffect(searchQuery.value) {
-            if (searchQuery.value.length > 1) {
-                coroutineScope.launch {
-                    mealResults.value = fetchMealsByName(searchQuery.value)
+            debounceJob.value?.cancel()
+            debounceJob.value = coroutineScope.launch {
+                delay(500) // Debounce di 500ms
+                if (searchQuery.value.isNotEmpty()) {
+                    mealResults.value = fetchMealsByFirstLetter(searchQuery.value)
+                } else {
+                    mealResults.value = emptyList()
                 }
-            } else {
-                mealResults.value = emptyList()
             }
         }
 
@@ -518,7 +522,7 @@ suspend fun fetchMeals(): List<Meal> {
                 OutlinedTextField(
                     value = searchQuery.value,
                     onValueChange = { searchQuery.value = it },
-                    label = { Text("Nome del piatto") },
+                    label = { Text("Inserisci una lettera") },
                     leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Icona Cerca") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
@@ -576,10 +580,10 @@ suspend fun fetchMeals(): List<Meal> {
         }
     }
 
-    suspend fun fetchMealsByName(name: String): List<Meal> {
+    suspend fun fetchMealsByFirstLetter(letter: String): List<Meal> {
         return withContext(Dispatchers.IO) {
             try {
-                val response = URL("https://www.themealdb.com/api/json/v1/1/search.php?s=$name").readText()
+                val response = URL("https://www.themealdb.com/api/json/v1/1/search.php?s=$letter").readText()
                 val mealResponse = kotlinx.serialization.json.Json {
                     ignoreUnknownKeys = true
                 }.decodeFromString<MealResponse>(response)
@@ -590,8 +594,7 @@ suspend fun fetchMeals(): List<Meal> {
             }
         }
     }
-
-@Composable
+    @Composable
 fun MealDetailScreen(navController: NavHostController, mealId: String?) {
     val meal = remember { mutableStateOf<Meal?>(null) }
     val context = LocalContext.current
