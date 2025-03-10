@@ -18,6 +18,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -55,12 +57,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Casino
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,7 +86,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.airbnb.lottie.LottieCompositionFactory
 import com.example.project_work.model.MealPreview
 import com.example.project_work.model.MealPreviewResponse
 import kotlinx.coroutines.Dispatchers
@@ -105,7 +105,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             Project_WorkTheme {
                 val navController = rememberNavController()
-                val coroutineScope = rememberCoroutineScope()
                 var showBottomBar by remember { mutableStateOf(false) }
 
                 // Osserva la destinazione attuale per nascondere la Navbar nella schermata di start
@@ -129,7 +128,12 @@ class MainActivity : ComponentActivity() {
                                     },
                                     label = { Text("Menu") },
                                     selected = navController.currentDestination?.route == "screen1",
-                                    onClick = { navController.navigate("screen1") }
+                                    onClick = {
+                                        navController.navigate("screen1") {
+                                            popUpTo(navController.graph.startDestinationId)
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
 
                                 NavigationBarItem(
@@ -141,7 +145,12 @@ class MainActivity : ComponentActivity() {
                                     },
                                     label = { Text("Cerca") },
                                     selected = navController.currentDestination?.route == "screen2",
-                                    onClick = { navController.navigate("screen2") }
+                                    onClick = {
+                                        navController.navigate("screen2") {
+                                            popUpTo(navController.graph.startDestinationId)
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
 
                                 NavigationBarItem(
@@ -153,7 +162,30 @@ class MainActivity : ComponentActivity() {
                                     },
                                     label = { Text("Ricette") },
                                     selected = navController.currentDestination?.route == "screen3",
-                                    onClick = { navController.navigate("screen3") }
+                                    onClick = {
+                                        navController.navigate("screen3") {
+                                            popUpTo(navController.graph.startDestinationId)
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                )
+
+                                // Aggiungi un nuovo NavigationBarItem per la schermata RandomMealScreen
+                                NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Casino, // Oppure Icons.Outlined.Shuffle
+                                            contentDescription = "Ricetta Casuale"
+                                        )
+                                    },
+                                    label = { Text("Casuale") },
+                                    selected = navController.currentDestination?.route == "RandomMealScreen",
+                                    onClick = {
+                                        navController.navigate("RandomMealScreen") {
+                                            popUpTo(navController.graph.startDestinationId)
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -204,14 +236,35 @@ class MainActivity : ComponentActivity() {
                                 val mealId = backStackEntry.arguments?.getString("mealId")
                                 MealDetailScreen(navController, mealId)
                             }
+                            composable(
+                                "RandomMealScreen",
+                                enterTransition = {
+                                    fadeIn(animationSpec = tween(700)) + scaleIn(
+                                        animationSpec = tween(700),
+                                        initialScale = 0.9f
+                                    ) + slideInHorizontally(
+                                        animationSpec = tween(700),
+                                        initialOffsetX = { it / 2 }
+                                    )
+                                },
+                                exitTransition = {
+                                    fadeOut(animationSpec = tween(700)) + scaleOut(
+                                        animationSpec = tween(700),
+                                        targetScale = 0.9f
+                                    ) + slideOutHorizontally(
+                                        animationSpec = tween(700),
+                                        targetOffsetX = { -it / 2 }
+                                    )
+                                }
+                            ) {
+                                RandomMealScreen(navController)
+                            }
                         }
                     }
                 }
             }
         }
     }
-
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun StartScreen(navController: NavController) {
     val gradient = Brush.verticalGradient(
@@ -898,6 +951,132 @@ fun GreetingPreview() {
     Project_WorkTheme {
         val navController = rememberNavController()
         Screen1(navController)
+        }
+    }
+}
+@Composable
+fun RandomMealScreen(navController: NavHostController) {
+    var meal by remember { mutableStateOf<Meal?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Funzione per caricare una ricetta casuale
+    fun loadRandomMeal() {
+        coroutineScope.launch {
+            isLoading = true
+            meal = fetchRandomMeal()
+            isLoading = false
+        }
+    }
+
+    // Carica una ricetta casuale all'avvio
+    LaunchedEffect(Unit) {
+        loadRandomMeal()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFFFCE4EC), Color(0xFFFFF3E0))))
+            .padding(16.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Titolo
+            Text(
+                text = "🍴 Ricetta Casuale",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF880E4F),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            // Card della ricetta con animazione
+            AnimatedVisibility(
+                visible = meal != null && !isLoading,
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { -it / 2 }
+            ) {
+                meal?.let { meal ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { navController.navigate("MealDetailScreen/${meal.idMeal}") },
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                meal.strMeal,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF880E4F),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            AsyncImage(
+                                model = meal.strMealThumb,
+                                contentDescription = meal.strMeal,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(2.dp, Color(0xFFFF7043), RoundedCornerShape(12.dp))
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { navController.navigate("MealDetailScreen/${meal.idMeal}") },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF880E4F)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Vedi dettagli", color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Pulsante per generare una nuova ricetta
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = { loadRandomMeal() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7043)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White)
+                } else {
+                    Text(
+                        text = "Scopri una nuova ricetta 🎲",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+suspend fun fetchRandomMeal(): Meal? {
+    return withContext(Dispatchers.IO) {
+        try {
+            val response = URL("https://www.themealdb.com/api/json/v1/1/random.php").readText()
+            val mealResponse = kotlinx.serialization.json.Json {
+                ignoreUnknownKeys = true
+            }.decodeFromString<MealResponse>(response)
+            mealResponse.meals?.firstOrNull()
+        } catch (e: Exception) {
+            Log.e("API_ERROR", "Errore durante il recupero della ricetta casuale: ${e.message}")
+            null
         }
     }
 }

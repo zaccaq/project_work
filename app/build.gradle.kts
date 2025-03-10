@@ -44,6 +44,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.compose.material:material-icons-extended:1.5.0")
     implementation ("com.airbnb.android:lottie-compose:6.0.0")
     implementation ("androidx.room:room-runtime:2.6.1")
     implementation ("androidx.room:room-ktx:2.6.1")
